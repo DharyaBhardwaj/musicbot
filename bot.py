@@ -19,7 +19,7 @@ app = Client(
     bot_token=BOT_TOKEN
 )
 
-# Render web server
+# ---------- Render Web Server ----------
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -32,10 +32,32 @@ def run_web():
     server.serve_forever()
 
 threading.Thread(target=run_web, daemon=True).start()
+# ----------------------------------------
 
+# Start command
 @app.on_message(filters.command("start"))
 async def start(_, message):
-    await message.reply_text("Music bot running!")
+    await message.reply_text("🎵 Music bot running!")
+
+# Play command
+@app.on_message(filters.command("play") & filters.group)
+async def play(_, message):
+    chat_id = message.chat.id
+
+    if len(message.command) < 2:
+        return await message.reply("❗ Song name do.\nExample: /play Believer")
+
+    song = " ".join(message.command[1:])
+
+    try:
+        # assistant auto join group
+        await assistant.join_chat(chat_id)
+    except Exception:
+        pass
+
+    await message.reply(
+        f"🎵 Requested: {song}\n\nAssistant joining voice chat..."
+    )
 
 print("Starting assistant...")
 assistant.start()
