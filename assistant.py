@@ -1,5 +1,12 @@
+import os
+from dotenv import load_dotenv
 from pyrogram import Client
-from config import API_ID, API_HASH, SESSION
+
+load_dotenv()
+
+API_ID = int(os.getenv("API_ID"))
+API_HASH = os.getenv("API_HASH")
+SESSION = os.getenv("SESSION_STRING")
 
 assistant = Client(
     "assistant",

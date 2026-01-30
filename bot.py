@@ -4,15 +4,14 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from dotenv import load_dotenv
 from pyrogram import Client, filters
+from assistant import assistant
 
-# Load environment variables
 load_dotenv()
 
 API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# Telegram bot client
 app = Client(
     "musicbot",
     api_id=API_ID,
@@ -20,7 +19,7 @@ app = Client(
     bot_token=BOT_TOKEN
 )
 
-# ---------- Render Web Server ----------
+# Render web server
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -33,14 +32,13 @@ def run_web():
     server.serve_forever()
 
 threading.Thread(target=run_web, daemon=True).start()
-# ----------------------------------------
 
-# Start command
 @app.on_message(filters.command("start"))
 async def start(_, message):
-    await message.reply_text(
-        "🎵 Music Bot is running!\n\nUse /play to play music."
-    )
+    await message.reply_text("Music bot running!")
 
-print("Bot starting...")
+print("Starting assistant...")
+assistant.start()
+
+print("Starting bot...")
 app.run()
