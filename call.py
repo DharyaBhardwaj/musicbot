@@ -4,7 +4,8 @@ import aiohttp
 import yt_dlp
 
 from pytgcalls import PyTgCalls
-from pytgcalls.types.input_stream import AudioPiped
+from pytgcalls.types import AudioPiped
+
 from assistant import assistant
 
 API_URL = "https://oddus-audio.vercel.app/api/download"
