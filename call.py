@@ -4,7 +4,7 @@ import aiohttp
 import yt_dlp
 
 from pytgcalls import PyTgCalls
-from pytgcalls.types.input_stream.audio_piped import AudioPiped
+from pytgcalls.types.stream import AudioPiped
 
 
 
