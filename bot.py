@@ -1,19 +1,22 @@
 import os
 import threading
+import asyncio
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from dotenv import load_dotenv
 from pyrogram import Client, filters
-from assistant import assistant
 
-# Load environment variables
+from assistant import assistant
+from call import start_call, play_song
+
+# ---------- Load ENV ----------
 load_dotenv()
 
 API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# Telegram Bot Client
+# ---------- Bot Client ----------
 app = Client(
     "musicbot",
     api_id=API_ID,
@@ -55,19 +58,30 @@ async def play(_, message):
     song = " ".join(message.command[1:])
 
     try:
-        # export invite link & join assistant
+        # assistant auto join group
         invite = await app.export_chat_invite_link(chat_id)
         await assistant.join_chat(invite)
     except Exception as e:
         print("Join error:", e)
 
     await message.reply(
-        f"🎵 Requested: {song}\n\nAssistant joining voice chat..."
+        f"🎵 Requested: {song}\n\nJoining VC & starting music..."
     )
+
+    try:
+        # VC join + play song
+        await play_song(chat_id, song)
+    except Exception as e:
+        print("Play error:", e)
+        await message.reply("❌ VC join ya play failed.")
+
 
 # ---------- Start Clients ----------
 print("Starting assistant...")
 assistant.start()
+
+print("Starting call client...")
+asyncio.get_event_loop().run_until_complete(start_call())
 
 print("Starting bot...")
 app.run()
