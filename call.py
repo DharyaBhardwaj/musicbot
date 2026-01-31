@@ -4,7 +4,7 @@ import aiohttp
 import yt_dlp
 
 from pytgcalls import PyTgCalls
-from pytgcalls.types import InputAudioStream
+from pytgcalls.types import InputAudioStream, AudioParameters
 
 from assistant import assistant
 
@@ -17,12 +17,12 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 pytgcalls = PyTgCalls(assistant)
 
 
-# ---- Start VC Client ----
+# ---------- Start VC Client ----------
 async def start_call():
     await pytgcalls.start()
 
 
-# ---- YouTube Search ----
+# ---------- YouTube search ----------
 def search_youtube(query):
     ydl_opts = {"quiet": True, "noplaylist": True}
 
@@ -31,7 +31,7 @@ def search_youtube(query):
         return info["entries"][0]["webpage_url"]
 
 
-# ---- Download Audio via Oddus API ----
+# ---------- Download audio ----------
 async def download_audio(video_url):
     headers = {"x-api-key": API_KEY}
 
@@ -45,14 +45,7 @@ async def download_audio(video_url):
             if resp.status != 200:
                 raise Exception("Download failed")
 
-            cd = resp.headers.get("Content-Disposition", "")
-            filename = "audio.mp3"
-
-            m = re.search(r'filename="?([^"]+)"?', cd)
-            if m:
-                filename = m.group(1)
-
-            file_path = os.path.join(DOWNLOAD_DIR, filename)
+            file_path = os.path.join(DOWNLOAD_DIR, "song.mp3")
 
             with open(file_path, "wb") as f:
                 async for chunk in resp.content.iter_chunked(1024 * 64):
@@ -61,10 +54,10 @@ async def download_audio(video_url):
     return file_path
 
 
-# ---- Play Song ----
+# ---------- Play ----------
 async def play_song(chat_id, query):
     try:
-        # song name -> YouTube search
+        # song name → youtube search
         if not query.startswith("http"):
             query = search_youtube(query)
 
@@ -72,7 +65,13 @@ async def play_song(chat_id, query):
 
         await pytgcalls.join_group_call(
             chat_id,
-            InputAudioStream(file_path)
+            InputAudioStream(
+                file_path,
+                AudioParameters(
+                    bitrate=48000,
+                    channels=2,
+                ),
+            ),
         )
 
         return True
