@@ -1,60 +1,58 @@
-import os
 import aiohttp
-from pyrogram import Client
 from pytgcalls import PyTgCalls
 from pytgcalls.types.input_stream import AudioPiped
 from pytgcalls.types.input_stream.quality import HighQualityAudio
 
-API_ID = int(os.getenv("API_ID"))
-API_HASH = os.getenv("API_HASH")
-SESSION = os.getenv("SESSION_STRING")
+ODDUS_API = "https://oddus-audio.vercel.app"
+ODDUS_KEY = "oddus-wiz777"
 
-API_URL = os.getenv("MUSIC_API_URL")
-API_KEY = os.getenv("MUSIC_API_KEY")
-
-user = Client(
-    "vc-user",
-    api_id=API_ID,
-    api_hash=API_HASH,
-    session_string=SESSION,
-)
-
-pytg = PyTgCalls(user)
+pytg = None
 
 
-async def get_audio_url(query: str) -> str:
-    """
-    song name -> API -> direct audio url
-    """
-    headers = {"x-api-key": API_KEY}
-    params = {"query": query}
+async def init(app):
+    global pytg
+    if pytg is None:
+        pytg = PyTgCalls(app)
+        await pytg.start()
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(API_URL, headers=headers, params=params) as r:
-            if r.status != 200:
-                raise Exception("API failed")
 
+async def fetch_audio(query: str) -> str:
+    async with aiohttp.ClientSession() as s:
+        async with s.get(
+            f"{ODDUS_API}/api/search",
+            params={"query": query},
+            headers={"x-api-key": ODDUS_KEY},
+        ) as r:
             data = await r.json()
 
-            # ⚠️ IMPORTANT:
-            # API response must contain audio stream url
-            if "audio_url" not in data:
-                raise Exception("API did not return audio_url")
+    if "url" not in data:
+        raise Exception("Song not found")
 
-            return data["audio_url"]
+    yt = data["url"]
+
+    async with aiohttp.ClientSession() as s:
+        async with s.get(
+            f"{ODDUS_API}/api/download",
+            params={"url": yt},
+            headers={"x-api-key": ODDUS_KEY},
+        ) as r:
+            with open("song.mp3", "wb") as f:
+                async for c in r.content.iter_chunked(65536):
+                    f.write(c)
+
+    return "song.mp3"
 
 
-async def start_call(chat_id: int, query: str):
-    await user.start()
-    await pytg.start()
-
-    audio_url = await get_audio_url(query)
+async def play(app, chat_id: int, query: str):
+    await init(app)
+    audio = await fetch_audio(query)
 
     await pytg.join_group_call(
         chat_id,
-        AudioPiped(audio_url, HighQualityAudio()),
+        AudioPiped(audio, HighQualityAudio()),
     )
 
 
-async def stop_song(chat_id: int):
-    await pytg.leave_group_call(chat_id)
+async def stop(chat_id: int):
+    if pytg:
+        await pytg.leave_group_call(chat_id)

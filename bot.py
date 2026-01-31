@@ -1,36 +1,31 @@
-from pyrogram import Client, filters
-from call import start_call, stop_song
 import os
+from pyrogram import Client, filters
+from call import play, stop
 
 API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+SESSION = os.getenv("SESSION_STRING")
 
-bot = Client(
-    "musicbot",
+app = Client(
+    "vcbot",
     api_id=API_ID,
     api_hash=API_HASH,
-    bot_token=BOT_TOKEN,
+    session_string=SESSION,
 )
 
-@bot.on_message(filters.command("play") & filters.group)
-async def play(_, message):
-    if len(message.command) < 2:
-        return await message.reply("❌ Song name do")
+@app.on_message(filters.command("play") & filters.group)
+async def play_cmd(_, m):
+    if len(m.command) < 2:
+        return await m.reply("❌ Song name do")
 
-    query = message.text.split(None, 1)[1]
-
-    try:
-        await start_call(message.chat.id, query)
-        await message.reply(f"🎶 Playing: `{query}`")
-    except Exception as e:
-        await message.reply(f"❌ Error: `{e}`")
+    await m.reply("🎵 VC joining...")
+    await play(app, m.chat.id, m.text.split(None, 1)[1])
 
 
-@bot.on_message(filters.command("stop") & filters.group)
-async def stop(_, message):
-    await stop_song(message.chat.id)
-    await message.reply("⏹ VC stopped")
+@app.on_message(filters.command("stop") & filters.group)
+async def stop_cmd(_, m):
+    await stop(m.chat.id)
+    await m.reply("⏹ Stopped")
 
-print("✅ API VC Music Bot Started")
-bot.run()
+print("✅ VC Music Bot Running")
+app.run()

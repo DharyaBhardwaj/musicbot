@@ -1,10 +1,5 @@
 pyrogram==2.0.106
 tgcrypto==1.2.5
-
-# ⚠️ VERY IMPORTANT
-py-tgcalls==0.9.7
-
+pytgcalls==2.1.0
 aiohttp
-requests
-python-dotenv
-flask
+youtubesearchpython
