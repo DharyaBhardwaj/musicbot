@@ -1,64 +1,34 @@
-import aiohttp
-import asyncio
-import os
-
 from pyrogram import Client
 from pytgcalls import PyTgCalls
 from pytgcalls.types.input_stream import AudioPiped
+from pytgcalls.types.input_stream.quality import HighQualityAudio
+import os
 
-# =========================
-# ODDUS API CONFIG
-# =========================
-ODDUS_API = "https://oddus-audio.vercel.app/api/play"
-ODDUS_KEY = os.getenv("ODDUS_API_KEY", "oddus-wiz777")
+API_ID = int(os.getenv("API_ID"))
+API_HASH = os.getenv("API_HASH")
+SESSION = os.getenv("SESSION_STRING")
 
-# =========================
-# Pyrogram + PyTgCalls
-# =========================
-pytg = PyTgCalls(None)
-started = False
+# ✅ USER CLIENT (VC JOIN करता है)
+user = Client(
+    name="vc-user",
+    api_id=API_ID,
+    api_hash=API_HASH,
+    session_string=SESSION,
+)
 
+pytg = PyTgCalls(user)
 
-async def get_stream_url(query: str) -> str:
-    async with aiohttp.ClientSession() as session:
-        async with session.get(
-            ODDUS_API,
-            params={"query": query},
-            headers={"x-api-key": ODDUS_KEY},
-        ) as resp:
-            if resp.status != 200:
-                raise Exception("API error")
-
-            data = await resp.json()
-
-            if "stream_url" not in data:
-                raise Exception("API did not return stream_url")
-
-            return data["stream_url"]
-
-
-async def start_call(app: Client, message, query: str):
-    global started
-
-    if not started:
-        pytg._app = app
-        await pytg.start()
-        started = True
-
-    chat_id = message.chat.id
-
-    stream_url = await get_stream_url(query)
+async def start_call(chat_id: int, audio_url: str):
+    await user.start()
+    await pytg.start()
 
     await pytg.join_group_call(
         chat_id,
-        AudioPiped(stream_url),
+        AudioPiped(
+            audio_url,
+            HighQualityAudio(),
+        ),
     )
-
-    await message.reply_text(
-        f"🎵 **Now Playing**\n`{query}`",
-        disable_web_page_preview=True,
-    )
-
 
 async def stop_song(chat_id: int):
     await pytg.leave_group_call(chat_id)
