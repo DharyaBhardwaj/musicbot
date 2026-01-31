@@ -1,6 +1,6 @@
 import yt_dlp
 from pytgcalls import PyTgCalls
-from pytgcalls.types import AudioPiped
+from pytgcalls.types.input_stream import AudioPiped
 from pyrogram import Client
 
 pytg = None
@@ -26,11 +26,11 @@ async def play_song(app: Client, chat_id: int, query: str):
         pytg = PyTgCalls(app)
         await pytg.start()
 
-    stream_url, title = yt_stream(query)
+    url, title = yt_stream(query)
 
     await pytg.join_group_call(
         chat_id,
-        AudioPiped(stream_url),
+        AudioPiped(url),
     )
 
     await app.send_message(chat_id, f"🎵 Playing: **{title}**")
