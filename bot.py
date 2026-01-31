@@ -1,22 +1,21 @@
 from pyrogram import Client, filters
-from pyrogram.types import Message
-import os
 from call import start_call
+import os
 
 app = Client(
-    "musicbot",
+    "music",
     api_id=int(os.getenv("API_ID")),
     api_hash=os.getenv("API_HASH"),
-    bot_token=os.getenv("BOT_TOKEN"),
+    session_string=os.getenv("SESSION_STRING"),
 )
 
 @app.on_message(filters.command("play") & filters.group)
-async def play_cmd(_, message: Message):
-    if len(message.command) < 2:
-        return await message.reply("❌ Song name ya link do")
+async def play(_, msg):
+    if len(msg.command) < 2:
+        return await msg.reply("❌ song name do")
 
-    query = message.text.split(None, 1)[1]
-    await start_call(app, message, query)
+    song = msg.text.split(None, 1)[1]
+    await start_call(app, msg.chat.id, song)
+    await msg.reply(f"▶️ Playing **{song}**")
 
-print("✅ Bot started (API → TEMP → VC)")
 app.run()

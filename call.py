@@ -1,31 +1,35 @@
-import aiohttp, os, uuid
-from pytgcalls import PyTgCalls
-from pytgcalls.types.input_stream import AudioPiped
 from pyrogram import Client
+from pyrogram.raw.functions.phone import CreateGroupCall
+from pyrogram.raw.functions.phone import JoinGroupCall
+from pyrogram.raw.types import InputPeerChannel
+from youtube import get_stream_url
+import asyncio
 
-pytgcalls = None
+active_calls = {}
 
-API_ENDPOINT = "https://YOUR_API_ENDPOINT/download"  # ← वही API जो सुबह थी
+async def start_call(app: Client, chat_id: int, song: str):
+    if chat_id in active_calls:
+        return
 
-async def get_audio_file(query: str) -> str:
-    filename = f"/tmp/{uuid.uuid4()}.mp3"
-    async with aiohttp.ClientSession() as session:
-        async with session.get(API_ENDPOINT, params={"q": query}) as r:
-            if r.status != 200:
-                raise Exception("API failed")
-            with open(filename, "wb") as f:
-                f.write(await r.read())
-    return filename
+    url = await get_stream_url(song)
 
-async def start_call(app: Client, message, query: str):
-    global pytgcalls
-    if not pytgcalls:
-        pytgcalls = PyTgCalls(app)
-        await pytgcalls.start()
+    peer = await app.resolve_peer(chat_id)
 
-    audio_file = await get_audio_file(query)
-
-    await pytgcalls.join_group_call(
-        message.chat.id,
-        AudioPiped(audio_file),
+    call = await app.invoke(
+        CreateGroupCall(
+            peer=peer,
+            random_id=app.rnd_id(),
+        )
     )
+
+    await app.invoke(
+        JoinGroupCall(
+            call=call.call,
+            join_as=peer,
+            muted=False,
+            video_stopped=True,
+            invite_hash=None,
+        )
+    )
+
+    active_calls[chat_id] = url
