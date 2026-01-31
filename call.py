@@ -2,7 +2,7 @@ import os
 import aiohttp
 from pyrogram import Client
 from pytgcalls import PyTgCalls
-from pytgcalls.types.stream import AudioPiped
+from pytgcalls.types.input_stream import AudioPiped  # ✅ FIXED
 
 pytg = None
 
@@ -24,7 +24,6 @@ async def get_stream_url(song_name: str) -> str:
         async with session.get(url, params=params, headers=headers) as resp:
             data = await resp.json()
 
-    # 👇 यही सुबह वाले bot का behaviour है
     if "audio" not in data:
         raise Exception("API did not return audio")
 
