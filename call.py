@@ -1,8 +1,11 @@
 import os
-import re
+import asyncio
 import aiohttp
+import re
+from collections import defaultdict, deque
 
 from pytgcalls import PyTgCalls
+from pytgcalls.types.stream import StreamAudioEnded
 from pytgcalls.types.input_stream import AudioPiped
 
 from assistant import assistant
@@ -15,57 +18,87 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 pytgcalls = PyTgCalls(assistant)
 
+# group queues
+queues = defaultdict(deque)
+playing = {}
 
-# start call client
 async def start_call():
     await pytgcalls.start()
 
-
-# download audio
-async def download_audio(video_url):
+# ---------------------------
+# Download audio via API
+# ---------------------------
+async def download_audio(url):
     headers = {"x-api-key": API_KEY}
 
     async with aiohttp.ClientSession() as session:
-        async with session.get(
-            API_URL,
-            headers=headers,
-            params={"url": video_url},
-        ) as resp:
-
-            if resp.status != 200:
-                print("Download failed:", resp.status)
-                return None
-
-            cd = resp.headers.get("Content-Disposition", "")
-            filename = "audio.mp3"
+        async with session.get(API_URL, headers=headers, params={"url": url}) as r:
+            cd = r.headers.get("Content-Disposition", "")
+            filename = "song.mp3"
 
             m = re.search(r'filename="?([^"]+)"?', cd)
             if m:
                 filename = m.group(1)
 
-            file_path = os.path.join(DOWNLOAD_DIR, filename)
+            path = os.path.join(DOWNLOAD_DIR, filename)
 
-            with open(file_path, "wb") as f:
-                async for chunk in resp.content.iter_chunked(1024 * 64):
+            with open(path, "wb") as f:
+                async for chunk in r.content.iter_chunked(1024 * 64):
                     f.write(chunk)
 
-    return file_path
+    return path
 
+# ---------------------------
+# Queue Player
+# ---------------------------
+async def play_next(chat_id):
+    if not queues[chat_id]:
+        await pytgcalls.leave_group_call(chat_id)
+        playing.pop(chat_id, None)
+        return
 
-# play in VC
+    url = queues[chat_id].popleft()
+    file_path = await download_audio(url)
+
+    await pytgcalls.join_group_call(
+        chat_id,
+        AudioPiped(file_path)
+    )
+
+    playing[chat_id] = file_path
+
+# ---------------------------
+# Main play function
+# ---------------------------
 async def play_song(chat_id, url):
-    try:
-        audio_file = await download_audio(url)
-        if not audio_file:
-            return False
+    queues[chat_id].append(url)
 
-        await pytgcalls.join_group_call(
-            chat_id,
-            AudioPiped(audio_file)
-        )
+    if chat_id not in playing:
+        await play_next(chat_id)
 
-        return True
+    return True
 
-    except Exception as e:
-        print("VC PLAY ERROR:", e)
-        return False
+# ---------------------------
+# Controls
+# ---------------------------
+async def skip(chat_id):
+    if chat_id in playing:
+        await play_next(chat_id)
+
+async def stop(chat_id):
+    queues[chat_id].clear()
+    await pytgcalls.leave_group_call(chat_id)
+    playing.pop(chat_id, None)
+
+async def pause(chat_id):
+    await pytgcalls.pause_stream(chat_id)
+
+async def resume(chat_id):
+    await pytgcalls.resume_stream(chat_id)
+
+# ---------------------------
+# Auto next when song ends
+# ---------------------------
+@pytgcalls.on_stream_end()
+async def on_stream_end(_, update: StreamAudioEnded):
+    await play_next(update.chat_id)
