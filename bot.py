@@ -1,20 +1,14 @@
 import os
-import threading
 import asyncio
+import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from dotenv import load_dotenv
 from pyrogram import Client, filters
-from assistant import assistant
 
-from call import (
-    start_call,
-    play_song,
-    skip,
-    stop,
-    pause,
-    resume,
-)
+from assistant import assistant
+from call import start_call, play_song
+from queue import add_song
 
 load_dotenv()
 
@@ -29,63 +23,59 @@ app = Client(
     bot_token=BOT_TOKEN
 )
 
-# Render keep-alive
+# -----------------------------
+# Render keep-alive web server
+# -----------------------------
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"Bot Running")
+        self.wfile.write(b"Bot is running")
 
 def run_web():
     port = int(os.environ.get("PORT", 10000))
     server = HTTPServer(("0.0.0.0", port), Handler)
     server.serve_forever()
 
-threading.Thread(target=run_web, daemon=True).start()
+threading.Thread(target=run_web).start()
 
-# ---------------- COMMANDS ----------------
-
-@app.on_message(filters.command("start"))
-async def start(_, message):
-    await message.reply("🎵 Music bot active!")
-
+# -----------------------------
+# PLAY COMMAND
+# -----------------------------
 @app.on_message(filters.command("play") & filters.group)
 async def play(_, message):
     if len(message.command) < 2:
-        return await message.reply("❌ Song link do")
+        return await message.reply("❌ Song name ya YouTube link do")
 
-    url = message.command[1]
-    await message.reply("🎵 Adding to queue...")
+    query = " ".join(message.command[1:])
+    chat_id = message.chat.id
 
-    await play_song(message.chat.id, url)
+    add_song(chat_id, query)
 
-@app.on_message(filters.command("skip") & filters.group)
-async def cmd_skip(_, message):
-    await skip(message.chat.id)
-    await message.reply("⏭ Skipped")
+    await message.reply(
+        f"➕ Added to queue:\n{query}\n\n🎵 Playing..."
+    )
 
-@app.on_message(filters.command("stop") & filters.group)
-async def cmd_stop(_, message):
-    await stop(message.chat.id)
-    await message.reply("⏹ Stopped")
+    ok = await play_song(chat_id, query)
 
-@app.on_message(filters.command("pause") & filters.group)
-async def cmd_pause(_, message):
-    await pause(message.chat.id)
-    await message.reply("⏸ Paused")
+    if not ok:
+        await message.reply("❌ VC play failed")
 
-@app.on_message(filters.command("resume") & filters.group)
-async def cmd_resume(_, message):
-    await resume(message.chat.id)
-    await message.reply("▶ Resumed")
+# -----------------------------
+# START BOT
+# -----------------------------
+async def main():
+    print("Starting assistant...")
+    await assistant.start()
 
-# ---------------- START ----------------
+    print("Starting call client...")
+    await start_call()
 
-print("Starting assistant...")
-assistant.start()
+    print("Starting bot...")
+    await app.start()
 
-print("Starting call client...")
-asyncio.get_event_loop().run_until_complete(start_call())
+    await idle()
 
-print("Starting bot...")
-app.run()
+from pyrogram import idle
+
+asyncio.get_event_loop().run_until_complete(main())
