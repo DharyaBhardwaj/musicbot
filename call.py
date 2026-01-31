@@ -1,8 +1,11 @@
 import os
 import re
 import aiohttp
+import yt_dlp
+
 from pytgcalls import PyTgCalls
-from pytgcalls.types.input_stream.audio_piped import AudioPiped
+from pytgcalls.types import InputAudioStream
+
 from assistant import assistant
 
 API_URL = "https://oddus-audio.vercel.app/api/download"
@@ -14,10 +17,21 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 pytgcalls = PyTgCalls(assistant)
 
 
+# ---- Start VC Client ----
 async def start_call():
     await pytgcalls.start()
 
 
+# ---- YouTube Search ----
+def search_youtube(query):
+    ydl_opts = {"quiet": True, "noplaylist": True}
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(f"ytsearch:{query}", download=False)
+        return info["entries"][0]["webpage_url"]
+
+
+# ---- Download Audio via Oddus API ----
 async def download_audio(video_url):
     headers = {"x-api-key": API_KEY}
 
@@ -47,13 +61,18 @@ async def download_audio(video_url):
     return file_path
 
 
-async def play_song(chat_id, url):
+# ---- Play Song ----
+async def play_song(chat_id, query):
     try:
-        file_path = await download_audio(url)
+        # song name -> YouTube search
+        if not query.startswith("http"):
+            query = search_youtube(query)
+
+        file_path = await download_audio(query)
 
         await pytgcalls.join_group_call(
             chat_id,
-            AudioPiped(file_path)
+            InputAudioStream(file_path)
         )
 
         return True
