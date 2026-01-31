@@ -1,50 +1,42 @@
 import os
 import re
 import aiohttp
-import yt_dlp
+import requests
 
 from pytgcalls import PyTgCalls
-
-# Compatible import for different versions
-try:
-    from pytgcalls.types.input_stream import AudioPiped
-except Exception:
-    try:
-        from pytgcalls.types.stream import AudioPiped
-    except Exception:
-        from pytgcalls.types import AudioPiped
+from pytgcalls.types.stream import AudioPiped
 
 from assistant import assistant
 
-# ---------- CONFIG ----------
+# ===== API CONFIG =====
 API_URL = "https://oddus-audio.vercel.app/api/download"
 API_KEY = "oddus-wiz777"
 
 DOWNLOAD_DIR = "downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-# ----------------------------
 
+# PyTgCalls client
 pytgcalls = PyTgCalls(assistant)
 
 
-# Start call client
+# ===== START VC CLIENT =====
 async def start_call():
     await pytgcalls.start()
 
 
-# Search song on YouTube
+# ===== YOUTUBE SEARCH (NO YT-DLP) =====
 def search_youtube(query):
-    ydl_opts = {
-        "quiet": True,
-        "noplaylist": True,
-    }
+    r = requests.get(
+        "https://ytsearch-api.vercel.app/search",
+        params={"query": query},
+        timeout=15,
+    )
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(f"ytsearch:{query}", download=False)
-        return info["entries"][0]["webpage_url"]
+    data = r.json()
+    return data["videos"][0]["url"]
 
 
-# Download audio using your Oddus API
+# ===== DOWNLOAD AUDIO USING ODDUS API =====
 async def download_audio(video_url):
     headers = {"x-api-key": API_KEY}
 
@@ -56,14 +48,14 @@ async def download_audio(video_url):
         ) as resp:
 
             if resp.status != 200:
-                raise RuntimeError("API download failed")
+                raise Exception("Download API error")
 
             cd = resp.headers.get("Content-Disposition", "")
             filename = "audio.mp3"
 
-            match = re.search(r'filename="?([^"]+)"?', cd)
-            if match:
-                filename = match.group(1)
+            m = re.search(r'filename="?([^"]+)"?', cd)
+            if m:
+                filename = m.group(1)
 
             file_path = os.path.join(DOWNLOAD_DIR, filename)
 
@@ -74,12 +66,19 @@ async def download_audio(video_url):
     return file_path
 
 
-# Join VC & play music
+# ===== PLAY SONG =====
 async def play_song(chat_id, query):
-    video_url = search_youtube(query)
-    audio_file = await download_audio(video_url)
+    try:
+        video_url = search_youtube(query)
+        audio_file = await download_audio(video_url)
 
-    await pytgcalls.join_group_call(
-        chat_id,
-        AudioPiped(audio_file),
-    )
+        await pytgcalls.join_group_call(
+            chat_id,
+            AudioPiped(audio_file),
+        )
+
+        return True
+
+    except Exception as e:
+        print("Play error:", e)
+        return False
