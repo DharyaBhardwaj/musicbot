@@ -1,0 +1,13 @@
+pyrogram==2.0.106
+tgcrypto==1.2.5
+
+pytgcalls==2.2.8
+ntgcalls==2.0.6
+
+aiohttp
+requests
+python-dotenv
+
+yt-dlp
+
+git+https://github.com/CertifiedDevloper/youtube-search-python.git
