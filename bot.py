@@ -1,11 +1,9 @@
 from pyrogram import Client, filters
 from pyrogram.types import Message
 import os
-from dotenv import load_dotenv
 
-from call import init_call, play_song, stop_song
-
-load_dotenv()
+from call import start_call, play_song
+from web import keep_alive   # ✅ ADD THIS
 
 API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
@@ -18,25 +16,21 @@ app = Client(
     bot_token=BOT_TOKEN,
 )
 
-
 @app.on_message(filters.command("play") & filters.group)
 async def play_cmd(_, message: Message):
     if len(message.command) < 2:
-        return await message.reply("❌ YouTube link do")
+        return await message.reply("❌ Song name ya YouTube link do")
 
-    link = message.text.split(None, 1)[1]
-
-    await init_call(app)
-    await play_song(message.chat.id, link)
-
-    await message.reply("▶️ Playing via API")
-
+    query = message.text.split(None, 1)[1]
+    await start_call(app, message, query)
 
 @app.on_message(filters.command("stop") & filters.group)
 async def stop_cmd(_, message: Message):
-    await stop_song(message.chat.id)
-    await message.reply("⏹ Stopped")
+    await play_song.stop(message.chat.id)
 
+print("✅ Bot started")
 
-print("✅ Music Bot Started")
+# 🔥 VERY IMPORTANT (Render Web Service fix)
+keep_alive()
+
 app.run()
