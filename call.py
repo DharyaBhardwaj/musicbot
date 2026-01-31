@@ -1,14 +1,13 @@
 import os
 import re
 import aiohttp
-import yt_dlp
 
 from pytgcalls import PyTgCalls
+from pytgcalls.types.input_stream.quality import LowQualityAudio
 from pytgcalls.types.input_stream import InputAudioStream
 
 from assistant import assistant
 
-# ================= CONFIG =================
 API_URL = "https://oddus-audio.vercel.app/api/download"
 API_KEY = "oddus-wiz777"
 
@@ -16,23 +15,14 @@ DOWNLOAD_DIR = "downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 pytgcalls = PyTgCalls(assistant)
-# ============================================
 
 
+# start VC client
 async def start_call():
     await pytgcalls.start()
 
 
-# ---------- YouTube Search ----------
-def search_youtube(query):
-    ydl_opts = {"quiet": True, "noplaylist": True}
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(f"ytsearch:{query}", download=False)
-        return info["entries"][0]["webpage_url"]
-
-
-# ---------- Download via Oddus ----------
+# download audio from API
 async def download_audio(video_url):
     headers = {"x-api-key": API_KEY}
 
@@ -63,22 +53,19 @@ async def download_audio(video_url):
     return file_path
 
 
-# ---------- Play Song ----------
-async def play_song(chat_id, query):
+# play in VC
+async def play_song(chat_id, url):
     try:
-        # Query ya direct URL dono chalega
-        if "youtube.com" in query or "youtu.be" in query:
-            video_url = query
-        else:
-            video_url = search_youtube(query)
-
-        audio_file = await download_audio(video_url)
+        audio_file = await download_audio(url)
         if not audio_file:
             return False
 
         await pytgcalls.join_group_call(
             chat_id,
-            InputAudioStream(audio_file),
+            InputAudioStream(
+                audio_file,
+                LowQualityAudio(),
+            ),
         )
 
         return True
