@@ -1,7 +1,7 @@
 import os
 import threading
-import asyncio
 from http.server import HTTPServer, BaseHTTPRequestHandler
+import asyncio
 
 from dotenv import load_dotenv
 from pyrogram import Client, filters
@@ -9,14 +9,14 @@ from pyrogram import Client, filters
 from assistant import assistant
 from call import start_call, play_song
 
-# ---------- Load ENV ----------
+# ------------------ ENV ------------------
 load_dotenv()
 
 API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# ---------- Bot Client ----------
+# ------------------ BOT CLIENT ------------------
 app = Client(
     "musicbot",
     api_id=API_ID,
@@ -24,7 +24,7 @@ app = Client(
     bot_token=BOT_TOKEN
 )
 
-# ---------- Render Web Server ----------
+# ------------------ WEB SERVER (Render keep alive) ------------------
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -38,19 +38,26 @@ def run_web():
 
 threading.Thread(target=run_web, daemon=True).start()
 
-# ---------- Commands ----------
+# ------------------ COMMANDS ------------------
 
 @app.on_message(filters.command("start"))
 async def start(_, message):
     await message.reply_text("🎵 Music bot running!")
 
-# Play command
 @app.on_message(filters.command("play") & filters.group)
 async def play(_, message):
+
     if len(message.command) < 2:
         return await message.reply("❌ YouTube link do")
 
     url = message.command[1]
+
+    # assistant auto join group
+    try:
+        invite = await app.export_chat_invite_link(message.chat.id)
+        await assistant.join_chat(invite)
+    except:
+        pass  # already joined
 
     await message.reply("🎵 Joining VC & playing...")
 
@@ -59,14 +66,13 @@ async def play(_, message):
     if not ok:
         await message.reply("❌ VC join ya play failed")
 
-# ---------- Start Assistant ----------
+# ------------------ START ------------------
+
 print("Starting assistant...")
 assistant.start()
 
-# ---------- Start Call Client ----------
 print("Starting call client...")
 asyncio.get_event_loop().run_until_complete(start_call())
 
-# ---------- Start Bot ----------
 print("Starting bot...")
 app.run()
