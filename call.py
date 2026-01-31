@@ -1,64 +1,48 @@
-import os
-import re
-import aiohttp
-
 from pytgcalls import PyTgCalls
-from pytgcalls.types.stream import AudioPiped
+from pytgcalls.types.stream import StreamAudioEnded
+from pytgcalls.types.input_stream.quality import HighQualityAudio
+from pytgcalls.types.input_stream import InputAudioStream
+from pyrogram import Client
+import yt_dlp
+import os
 
-from assistant import assistant
-
-API_URL = "https://oddus-audio.vercel.app/api/download"
-API_KEY = "oddus-wiz777"
-
-DOWNLOAD_DIR = "downloads"
-os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+assistant = Client(
+    "assistant",
+    api_id=int(os.getenv("API_ID")),
+    api_hash=os.getenv("API_HASH"),
+    session_string=os.getenv("SESSION_STRING")
+)
 
 pytgcalls = PyTgCalls(assistant)
 
-
 async def start_call():
+    await assistant.start()
     await pytgcalls.start()
 
+async def download_audio(url):
+    ydl_opts = {
+        "format": "bestaudio",
+        "outtmpl": "song.%(ext)s",
+        "quiet": True,
+        "noplaylist": True,
+    }
 
-async def download_audio(video_url):
-    headers = {"x-api-key": API_KEY}
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=True)
+        file = ydl.prepare_filename(info)
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(
-            API_URL,
-            headers=headers,
-            params={"url": video_url},
-        ) as resp:
-
-            if resp.status != 200:
-                print("Download error:", resp.status)
-                return None
-
-            cd = resp.headers.get("Content-Disposition", "")
-            filename = "audio.mp3"
-
-            m = re.search(r'filename="?([^"]+)"?', cd)
-            if m:
-                filename = m.group(1)
-
-            file_path = os.path.join(DOWNLOAD_DIR, filename)
-
-            with open(file_path, "wb") as f:
-                async for chunk in resp.content.iter_chunked(1024 * 64):
-                    f.write(chunk)
-
-    return file_path
-
+    return file
 
 async def play_song(chat_id, url):
     try:
-        audio_file = await download_audio(url)
-        if not audio_file:
-            return False
+        file = await download_audio(url)
 
         await pytgcalls.join_group_call(
             chat_id,
-            AudioPiped(audio_file)
+            InputAudioStream(
+                file,
+                HighQualityAudio(),
+            ),
         )
 
         return True
