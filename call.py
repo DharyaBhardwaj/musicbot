@@ -4,18 +4,23 @@ from pytgcalls.types.input_stream import AudioPiped
 
 from youtube import download_audio
 
-pytg = PyTgCalls(None)
-
-ACTIVE_CALLS = {}
+pytg = None
+ACTIVE_CALLS = set()
 
 async def play_song(app, message: Message, query: str):
+    global pytg
+
     chat_id = message.chat.id
 
-    if chat_id not in ACTIVE_CALLS:
-        await pytg.start(app)
-        ACTIVE_CALLS[chat_id] = True
+    # 🔹 Init PyTgCalls ONLY when needed
+    if pytg is None:
+        pytg = PyTgCalls(app)
+        await pytg.start()
 
-    await message.reply("🔎 Searching & downloading...")
+    if chat_id in ACTIVE_CALLS:
+        return await message.reply("⚠️ VC already playing here")
+
+    await message.reply("🔎 Searching song...")
 
     audio_path, title = await download_audio(query)
 
@@ -27,11 +32,12 @@ async def play_song(app, message: Message, query: str):
             chat_id,
             AudioPiped(audio_path),
         )
+        ACTIVE_CALLS.add(chat_id)
         await message.reply(f"🎶 Playing: **{title}**")
     except Exception as e:
-        await message.reply(f"❌ VC Error: {e}")
+        await message.reply(f"❌ VC Error:\n`{e}`")
 
 async def stop_song(chat_id: int):
-    if chat_id in ACTIVE_CALLS:
+    if pytg and chat_id in ACTIVE_CALLS:
         await pytg.leave_group_call(chat_id)
-        ACTIVE_CALLS.pop(chat_id, None)
+        ACTIVE_CALLS.remove(chat_id)
