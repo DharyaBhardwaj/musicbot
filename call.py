@@ -3,8 +3,7 @@ import re
 import aiohttp
 
 from pytgcalls import PyTgCalls
-from pytgcalls.types.input_stream.quality import LowQualityAudio
-from pytgcalls.types.input_stream import InputAudioStream
+from pytgcalls.types.input_stream import AudioPiped
 
 from assistant import assistant
 
@@ -17,12 +16,12 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 pytgcalls = PyTgCalls(assistant)
 
 
-# start VC client
+# start call client
 async def start_call():
     await pytgcalls.start()
 
 
-# download audio from API
+# download audio
 async def download_audio(video_url):
     headers = {"x-api-key": API_KEY}
 
@@ -62,10 +61,7 @@ async def play_song(chat_id, url):
 
         await pytgcalls.join_group_call(
             chat_id,
-            InputAudioStream(
-                audio_file,
-                LowQualityAudio(),
-            ),
+            AudioPiped(audio_file)
         )
 
         return True
