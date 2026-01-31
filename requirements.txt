@@ -8,6 +8,7 @@ tgcalls==3.0.0.dev6
 aiohttp
 multidict==6.0.5
 yarl==1.9.4
+attrs==23.2.0
 
 requests
 python-dotenv
