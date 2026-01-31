@@ -1,36 +1,35 @@
-import yt_dlp
+import aiohttp
 from pytgcalls import PyTgCalls
 from pytgcalls.types.input_stream import AudioPiped
-from pyrogram import Client
 
 pytg = None
 
-def yt_stream(query: str):
-    ydl_opts = {
-        "format": "bestaudio",
-        "quiet": True,
-        "default_search": "ytsearch",
-        "noplaylist": True,
-    }
+ODDUS_API = "https://oddus-audio.vercel.app/api/stream"
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(query, download=False)
-        if "entries" in info:
-            info = info["entries"][0]
-        return info["url"], info["title"]
+async def get_stream_url(query: str):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(ODDUS_API, params={"q": query}) as r:
+            data = await r.json()
 
-async def play_song(app: Client, chat_id: int, query: str):
+            # API returns direct audio URL
+            if "audio" not in data:
+                raise Exception("API did not return audio stream")
+
+            return data["audio"], data.get("title", query)
+
+
+async def start_call(app, chat_id: int, query: str):
     global pytg
 
     if pytg is None:
         pytg = PyTgCalls(app)
         await pytg.start()
 
-    url, title = yt_stream(query)
+    stream_url, title = await get_stream_url(query)
 
     await pytg.join_group_call(
         chat_id,
-        AudioPiped(url),
+        AudioPiped(stream_url),
     )
 
     await app.send_message(chat_id, f"🎵 Playing: **{title}**")
