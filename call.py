@@ -1,55 +1,48 @@
-import aiohttp
+from pyrogram import Client
 from pytgcalls import PyTgCalls
-from pytgcalls.types.input_stream import AudioPiped
-from pytgcalls.types.input_stream.quality import HighQualityAudio
+from pytgcalls.types.stream import AudioPiped
+from pytgcalls.types.stream import StreamType
 
-ODDUS_API = "https://oddus-audio.vercel.app"
-ODDUS_KEY = "oddus-wiz777"
+import os
+import aiohttp
 
 pytg = None
 
-
-async def init(app):
+async def init_pytgcalls(app: Client):
     global pytg
     if pytg is None:
         pytg = PyTgCalls(app)
         await pytg.start()
 
 
-async def fetch_audio(query: str) -> str:
-    async with aiohttp.ClientSession() as s:
-        async with s.get(
-            f"{ODDUS_API}/api/search",
-            params={"query": query},
-            headers={"x-api-key": ODDUS_KEY},
-        ) as r:
-            data = await r.json()
+async def fetch_stream_url(query: str) -> str:
+    url = "https://oddus-audio.vercel.app/api/search"
+    params = {"query": query}
+    headers = {
+        "x-api-key": os.getenv("MUSIC_API_KEY", "oddus-wiz777")
+    }
 
-    if "url" not in data:
-        raise Exception("Song not found")
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, params=params, headers=headers) as resp:
+            data = await resp.json()
 
-    yt = data["url"]
+    if "audio" not in data:
+        raise Exception("API did not return audio")
 
-    async with aiohttp.ClientSession() as s:
-        async with s.get(
-            f"{ODDUS_API}/api/download",
-            params={"url": yt},
-            headers={"x-api-key": ODDUS_KEY},
-        ) as r:
-            with open("song.mp3", "wb") as f:
-                async for c in r.content.iter_chunked(65536):
-                    f.write(c)
-
-    return "song.mp3"
+    return data["audio"]
 
 
-async def play(app, chat_id: int, query: str):
-    await init(app)
-    audio = await fetch_audio(query)
+async def play(app: Client, chat_id: int, query: str):
+    await init_pytgcalls(app)
+
+    stream_url = await fetch_stream_url(query)
 
     await pytg.join_group_call(
         chat_id,
-        AudioPiped(audio, HighQualityAudio()),
+        AudioPiped(
+            stream_url,
+        ),
+        stream_type=StreamType().pulse_stream,
     )
 
 
