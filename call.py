@@ -1,34 +1,40 @@
 import aiohttp
-from pytgcalls import PyTgCalls
-from pytgcalls.types.input_stream import AudioPiped
-from pytgcalls.types.input_stream.quality import HighQualityAudio
+import os
+from pyrogram.types import Message
 
-pytgcalls = None
-
-ODDUS_API = "https://oddus-audio.vercel.app/api/stream"
+ODDUS_API = "https://oddus-audio.vercel.app/api/download"
 ODDUS_KEY = "oddus-wiz777"
 
+class Player:
+    async def stop(self, chat_id: int):
+        # simple placeholder (no vc state handling)
+        return
 
-async def init_call(app):
-    global pytgcalls
-    if not pytgcalls:
-        pytgcalls = PyTgCalls(app)
-        await pytgcalls.start()
+play_song = Player()
 
+async def start_call(app, message: Message, query: str):
+    await message.reply("🔎 Searching & downloading...")
 
-async def play_song(chat_id: int, youtube_url: str):
-    api_url = f"{ODDUS_API}?url={youtube_url}&api_key={ODDUS_KEY}"
+    params = {"url": query}
+    headers = {"x-api-key": ODDUS_KEY}
 
-    stream = AudioPiped(
-        api_url,
-        HighQualityAudio(),
+    async with aiohttp.ClientSession() as session:
+        async with session.get(ODDUS_API, params=params, headers=headers) as resp:
+            if resp.status != 200:
+                return await message.reply("❌ API error")
+
+            file_path = "song.mp3"
+            with open(file_path, "wb") as f:
+                async for chunk in resp.content.iter_chunked(1024 * 64):
+                    f.write(chunk)
+
+    await app.send_audio(
+        chat_id=message.chat.id,
+        audio=file_path,
+        caption="▶️ Playing via API",
     )
 
-    await pytgcalls.join_group_call(
-        chat_id,
-        stream,
-    )
-
-
-async def stop_song(chat_id: int):
-    await pytgcalls.leave_group_call(chat_id)
+    try:
+        os.remove(file_path)
+    except:
+        pass
