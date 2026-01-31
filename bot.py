@@ -20,15 +20,17 @@ async def play(_, message):
 
     query = message.text.split(None, 1)[1]
 
-    # 👉 यहाँ API से audio URL लाओ
-    audio_url = query  # फिलहाल test के लिए direct URL
+    try:
+        await start_call(message.chat.id, query)
+        await message.reply(f"🎶 Playing: `{query}`")
+    except Exception as e:
+        await message.reply(f"❌ Error: `{e}`")
 
-    await start_call(message.chat.id, audio_url)
-    await message.reply("🎶 Playing in VC")
 
 @bot.on_message(filters.command("stop") & filters.group)
 async def stop(_, message):
     await stop_song(message.chat.id)
-    await message.reply("⏹ Stopped")
+    await message.reply("⏹ VC stopped")
 
+print("✅ API VC Music Bot Started")
 bot.run()
