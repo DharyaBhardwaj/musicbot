@@ -5,10 +5,8 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from dotenv import load_dotenv
 from pyrogram import Client, filters
-
 from assistant import assistant
 from call import start_call, play_song
-from queue import add_song
 
 load_dotenv()
 
@@ -23,59 +21,50 @@ app = Client(
     bot_token=BOT_TOKEN
 )
 
-# -----------------------------
-# Render keep-alive web server
-# -----------------------------
+# ---- Render keep alive server ----
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"Bot is running")
+        self.wfile.write(b"Bot running")
+
 
 def run_web():
     port = int(os.environ.get("PORT", 10000))
     server = HTTPServer(("0.0.0.0", port), Handler)
     server.serve_forever()
 
-threading.Thread(target=run_web).start()
 
-# -----------------------------
-# PLAY COMMAND
-# -----------------------------
+threading.Thread(target=run_web, daemon=True).start()
+
+
+# ---- Commands ----
+@app.on_message(filters.command("start"))
+async def start(_, message):
+    await message.reply_text("🎵 Music bot running!")
+
+
 @app.on_message(filters.command("play") & filters.group)
 async def play(_, message):
     if len(message.command) < 2:
         return await message.reply("❌ Song name ya YouTube link do")
 
-    query = " ".join(message.command[1:])
-    chat_id = message.chat.id
+    url = message.command[1]
 
-    add_song(chat_id, query)
+    await message.reply("🎵 Joining VC & playing...")
 
-    await message.reply(
-        f"➕ Added to queue:\n{query}\n\n🎵 Playing..."
-    )
-
-    ok = await play_song(chat_id, query)
+    ok = await play_song(message.chat.id, url)
 
     if not ok:
         await message.reply("❌ VC play failed")
 
-# -----------------------------
-# START BOT
-# -----------------------------
-async def main():
-    print("Starting assistant...")
-    await assistant.start()
 
-    print("Starting call client...")
-    await start_call()
+# ---- Start Clients ----
+print("Starting assistant...")
+assistant.start()
 
-    print("Starting bot...")
-    await app.start()
+print("Starting call client...")
+asyncio.get_event_loop().run_until_complete(start_call())
 
-    await idle()
-
-from pyrogram import idle
-
-asyncio.get_event_loop().run_until_complete(main())
+print("Starting bot...")
+app.run()
