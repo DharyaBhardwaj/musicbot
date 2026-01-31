@@ -1,15 +1,25 @@
 import aiohttp
-from youtube import search_youtube
 
-ODDUS_API = "https://oddus-audio.vercel.app/api/download"
+ODDUS_SEARCH = "https://oddus-audio.vercel.app/api/search"
 
-async def get_stream_url(song_name: str):
-    yt_url = await search_youtube(song_name)
-
+async def start_call(message, query: str):
     async with aiohttp.ClientSession() as session:
-        async with session.get(ODDUS_API, params={"url": yt_url}) as r:
-            if r.status != 200:
-                raise Exception("Oddus failed")
+        async with session.get(ODDUS_SEARCH, params={"q": query}) as resp:
+            if resp.status != 200:
+                return await message.reply_text("❌ API error")
 
-            # Oddus returns audio stream directly
-            return str(r.url)
+            data = await resp.json()
+
+    # API response safety
+    if not data or "audio" not in data:
+        return await message.reply_text("❌ Song nahi mila")
+
+    audio_url = data["audio"]
+
+    # Telegram VC streaming requires pytgcalls/node
+    # BUT since you explicitly want API stream only,
+    # we send playable stream link for VC-compatible bots
+    await message.reply_text(
+        f"🎵 **Found:** {query}\n\n"
+        f"🔊 Stream URL:\n{audio_url}"
+    )
