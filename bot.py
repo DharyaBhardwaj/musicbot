@@ -21,7 +21,7 @@ app = Client(
     bot_token=BOT_TOKEN
 )
 
-# ---- Render keep alive server ----
+# ---- Render keep alive ----
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -47,7 +47,7 @@ async def start(_, message):
 @app.on_message(filters.command("play") & filters.group)
 async def play(_, message):
     if len(message.command) < 2:
-        return await message.reply("❌ Song name ya YouTube link do")
+        return await message.reply("❌ YouTube link do")
 
     url = message.command[1]
 
