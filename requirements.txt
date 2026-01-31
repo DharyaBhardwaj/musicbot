@@ -1,5 +1,8 @@
 pyrogram==2.0.106
 tgcrypto==1.2.5
-pytgcalls==2.1.0
+
+# PyTgCalls from GitHub (NO tgcalls error)
+git+https://github.com/pytgcalls/pytgcalls.git
+
 aiohttp
 youtube-search-python
