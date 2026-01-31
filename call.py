@@ -3,18 +3,15 @@ import re
 import aiohttp
 
 from pytgcalls import PyTgCalls
-from pytgcalls.types.input_stream import InputAudioStream
-from pytgcalls.types.input_stream.quality import HighQualityAudio
+from pytgcalls.types.input_stream import AudioPiped
 
 from assistant import assistant
 
-# ================= CONFIG =================
-ODDUS_API_URL = "https://oddus-audio.vercel.app/api/download"
-ODDUS_API_KEY = "oddus-wiz777"
+API_URL = "https://oddus-audio.vercel.app/api/download"
+API_KEY = "oddus-wiz777"
 
 DOWNLOAD_DIR = "downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-# =========================================
 
 pytgcalls = PyTgCalls(assistant)
 
@@ -23,45 +20,45 @@ async def start_call():
     await pytgcalls.start()
 
 
-async def download_from_oddus(youtube_url: str) -> str:
-    headers = {"x-api-key": ODDUS_API_KEY}
+async def download_audio(video_url):
+    headers = {"x-api-key": API_KEY}
 
     async with aiohttp.ClientSession() as session:
         async with session.get(
-            ODDUS_API_URL,
+            API_URL,
             headers=headers,
-            params={"url": youtube_url},
+            params={"url": video_url},
         ) as resp:
 
             if resp.status != 200:
-                raise Exception("Oddus API failed")
+                print("Download error:", resp.status)
+                return None
 
             cd = resp.headers.get("Content-Disposition", "")
-            filename = "song.mp3"
+            filename = "audio.mp3"
 
-            match = re.search(r'filename="?([^"]+)"?', cd)
-            if match:
-                filename = match.group(1)
+            m = re.search(r'filename="?([^"]+)"?', cd)
+            if m:
+                filename = m.group(1)
 
-            path = os.path.join(DOWNLOAD_DIR, filename)
+            file_path = os.path.join(DOWNLOAD_DIR, filename)
 
-            with open(path, "wb") as f:
+            with open(file_path, "wb") as f:
                 async for chunk in resp.content.iter_chunked(1024 * 64):
                     f.write(chunk)
 
-    return path
+    return file_path
 
 
-async def play_song(chat_id: int, youtube_url: str):
+async def play_song(chat_id, url):
     try:
-        audio_path = await download_from_oddus(youtube_url)
+        audio_file = await download_audio(url)
+        if not audio_file:
+            return False
 
         await pytgcalls.join_group_call(
             chat_id,
-            InputAudioStream(
-                audio_path,
-                HighQualityAudio()
-            ),
+            AudioPiped(audio_file)
         )
 
         return True
