@@ -1,35 +1,15 @@
-from pyrogram import Client
-from pyrogram.raw.functions.phone import CreateGroupCall
-from pyrogram.raw.functions.phone import JoinGroupCall
-from pyrogram.raw.types import InputPeerChannel
-from youtube import get_stream_url
-import asyncio
+import aiohttp
+from youtube import search_youtube
 
-active_calls = {}
+ODDUS_API = "https://oddus-audio.vercel.app/api/download"
 
-async def start_call(app: Client, chat_id: int, song: str):
-    if chat_id in active_calls:
-        return
+async def get_stream_url(song_name: str):
+    yt_url = await search_youtube(song_name)
 
-    url = await get_stream_url(song)
+    async with aiohttp.ClientSession() as session:
+        async with session.get(ODDUS_API, params={"url": yt_url}) as r:
+            if r.status != 200:
+                raise Exception("Oddus failed")
 
-    peer = await app.resolve_peer(chat_id)
-
-    call = await app.invoke(
-        CreateGroupCall(
-            peer=peer,
-            random_id=app.rnd_id(),
-        )
-    )
-
-    await app.invoke(
-        JoinGroupCall(
-            call=call.call,
-            join_as=peer,
-            muted=False,
-            video_stopped=True,
-            invite_hash=None,
-        )
-    )
-
-    active_calls[chat_id] = url
+            # Oddus returns audio stream directly
+            return str(r.url)
