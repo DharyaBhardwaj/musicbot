@@ -1,8 +1,6 @@
-import os
 from pyrogram.types import Message
 from pytgcalls import PyTgCalls
 from pytgcalls.types.input_stream import AudioPiped
-from pytgcalls.types.stream import StreamType
 
 from youtube import download_audio
 
@@ -27,10 +25,7 @@ async def play_song(app, message: Message, query: str):
     try:
         await pytg.join_group_call(
             chat_id,
-            AudioPiped(
-                audio_path,
-                stream_type=StreamType().pulse_stream,
-            ),
+            AudioPiped(audio_path),
         )
         await message.reply(f"🎶 Playing: **{title}**")
     except Exception as e:
