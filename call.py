@@ -5,10 +5,8 @@ import yt_dlp
 
 from pytgcalls import PyTgCalls
 from pytgcalls.types.input_stream import InputAudioStream
-
 from assistant import assistant
 
-# -------- CONFIG --------
 API_URL = "https://oddus-audio.vercel.app/api/download"
 API_KEY = "oddus-wiz777"
 
@@ -16,7 +14,6 @@ DOWNLOAD_DIR = "downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 pytgcalls = PyTgCalls(assistant)
-# ------------------------
 
 
 async def start_call():
@@ -24,20 +21,22 @@ async def start_call():
 
 
 # -------- YouTube search --------
-def search_youtube(query: str):
+def search_youtube(query):
     ydl_opts = {
         "quiet": True,
         "noplaylist": True,
-        "extract_flat": True,
         "skip_download": True,
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(f"ytsearch1:{query}", download=False)
-        return info["entries"][0]["url"]
+        video_id = info["entries"][0]["id"]
+
+    # FULL URL return
+    return f"https://www.youtube.com/watch?v={video_id}"
 
 
-# -------- Download via API --------
+# -------- Download audio --------
 async def download_audio(video_url):
     headers = {"x-api-key": API_KEY}
 
@@ -67,9 +66,10 @@ async def download_audio(video_url):
     return file_path
 
 
-# -------- Play song --------
+# -------- Play --------
 async def play_song(chat_id, query):
     try:
+        # search if not link
         if "youtube.com" not in query and "youtu.be" not in query:
             query = search_youtube(query)
 
