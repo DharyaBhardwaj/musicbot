@@ -37,8 +37,6 @@ def run_web():
     server.serve_forever()
 
 threading.Thread(target=run_web, daemon=True).start()
-# ----------------------------------------
-
 
 # ---------- Commands ----------
 
@@ -46,42 +44,29 @@ threading.Thread(target=run_web, daemon=True).start()
 async def start(_, message):
     await message.reply_text("🎵 Music bot running!")
 
+# Play command
 @app.on_message(filters.command("play") & filters.group)
 async def play(_, message):
-    chat_id = message.chat.id
-
     if len(message.command) < 2:
-        return await message.reply(
-            "❗ Song name do.\nExample: /play Believer"
-        )
+        return await message.reply("❌ YouTube link do")
 
-    song = " ".join(message.command[1:])
+    url = message.command[1]
 
-    try:
-        # assistant auto join group
-        invite = await app.export_chat_invite_link(chat_id)
-        await assistant.join_chat(invite)
-    except Exception as e:
-        print("Join error:", e)
+    await message.reply("🎵 Joining VC & playing...")
 
-    await message.reply(
-        f"🎵 Requested: {song}\n\nJoining VC & starting music..."
-    )
+    ok = await play_song(message.chat.id, url)
 
-    try:
-        # VC join + play song
-        await play_song(chat_id, song)
-    except Exception as e:
-        print("Play error:", e)
-        await message.reply("❌ VC join ya play failed.")
+    if not ok:
+        await message.reply("❌ VC join ya play failed")
 
-
-# ---------- Start Clients ----------
+# ---------- Start Assistant ----------
 print("Starting assistant...")
 assistant.start()
 
+# ---------- Start Call Client ----------
 print("Starting call client...")
 asyncio.get_event_loop().run_until_complete(start_call())
 
+# ---------- Start Bot ----------
 print("Starting bot...")
 app.run()
