@@ -3,7 +3,7 @@ import re
 import aiohttp
 
 from pytgcalls import PyTgCalls
-from pytgcalls.types.input_stream import AudioPiped
+from pytgcalls.types.stream import AudioPiped
 
 from assistant import assistant
 
