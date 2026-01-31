@@ -1,25 +1,36 @@
-import aiohttp
+import yt_dlp
+from pytgcalls import PyTgCalls
+from pytgcalls.types import AudioPiped
+from pyrogram import Client
 
-ODDUS_SEARCH = "https://oddus-audio.vercel.app/api/search"
+pytg = None
 
-async def start_call(message, query: str):
-    async with aiohttp.ClientSession() as session:
-        async with session.get(ODDUS_SEARCH, params={"q": query}) as resp:
-            if resp.status != 200:
-                return await message.reply_text("❌ API error")
+def yt_stream(query: str):
+    ydl_opts = {
+        "format": "bestaudio",
+        "quiet": True,
+        "default_search": "ytsearch",
+        "noplaylist": True,
+    }
 
-            data = await resp.json()
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(query, download=False)
+        if "entries" in info:
+            info = info["entries"][0]
+        return info["url"], info["title"]
 
-    # API response safety
-    if not data or "audio" not in data:
-        return await message.reply_text("❌ Song nahi mila")
+async def play_song(app: Client, chat_id: int, query: str):
+    global pytg
 
-    audio_url = data["audio"]
+    if pytg is None:
+        pytg = PyTgCalls(app)
+        await pytg.start()
 
-    # Telegram VC streaming requires pytgcalls/node
-    # BUT since you explicitly want API stream only,
-    # we send playable stream link for VC-compatible bots
-    await message.reply_text(
-        f"🎵 **Found:** {query}\n\n"
-        f"🔊 Stream URL:\n{audio_url}"
+    stream_url, title = yt_stream(query)
+
+    await pytg.join_group_call(
+        chat_id,
+        AudioPiped(stream_url),
     )
+
+    await app.send_message(chat_id, f"🎵 Playing: **{title}**")

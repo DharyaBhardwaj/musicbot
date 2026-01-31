@@ -2,7 +2,7 @@ from pyrogram import Client, filters
 from pyrogram.types import Message
 import os
 
-from call import start_call
+from call import play_song
 
 API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
@@ -16,12 +16,12 @@ app = Client(
 )
 
 @app.on_message(filters.command("play") & filters.group)
-async def play_cmd(_, message: Message):
+async def play(_, message: Message):
     if len(message.command) < 2:
         return await message.reply_text("❌ Song name likho")
 
     query = message.text.split(None, 1)[1]
-    await start_call(message, query)
+    await play_song(app, message.chat.id, query)
 
-print("✅ Bot started (API STREAM MODE)")
+print("✅ VC Music Bot Started")
 app.run()
