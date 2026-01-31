@@ -1,7 +1,8 @@
 import os
-import requests
+import re
+import aiohttp
 from pytgcalls import PyTgCalls
-from pytgcalls.types.input_stream import InputAudioStream
+from pytgcalls.types.stream import AudioPiped
 from assistant import assistant
 
 API_URL = "https://oddus-audio.vercel.app/api/download"
@@ -17,30 +18,42 @@ async def start_call():
     await pytgcalls.start()
 
 
-def download_audio(url):
+async def download_audio(video_url):
     headers = {"x-api-key": API_KEY}
-    params = {"url": url}
 
-    r = requests.get(API_URL, headers=headers, params=params)
+    async with aiohttp.ClientSession() as session:
+        async with session.get(
+            API_URL,
+            headers=headers,
+            params={"url": video_url},
+        ) as resp:
 
-    if r.status_code != 200:
-        raise Exception("Audio download failed")
+            if resp.status != 200:
+                raise Exception("Download failed")
 
-    file_path = os.path.join(DOWNLOAD_DIR, "song.mp3")
+            cd = resp.headers.get("Content-Disposition", "")
+            filename = "audio.mp3"
 
-    with open(file_path, "wb") as f:
-        f.write(r.content)
+            m = re.search(r'filename="?([^"]+)"?', cd)
+            if m:
+                filename = m.group(1)
+
+            file_path = os.path.join(DOWNLOAD_DIR, filename)
+
+            with open(file_path, "wb") as f:
+                async for chunk in resp.content.iter_chunked(1024 * 64):
+                    f.write(chunk)
 
     return file_path
 
 
 async def play_song(chat_id, url):
     try:
-        audio_file = download_audio(url)
+        file_path = await download_audio(url)
 
         await pytgcalls.join_group_call(
             chat_id,
-            InputAudioStream(audio_file),
+            AudioPiped(file_path)
         )
 
         return True
