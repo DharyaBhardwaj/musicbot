@@ -1,6 +1,7 @@
 pyrogram==2.0.106
 tgcrypto==1.2.5
 py-tgcalls==0.9.7
-aiohttp==3.9.5
-requests
+yt-dlp
+aiohttp
 python-dotenv
+ffmpeg-python

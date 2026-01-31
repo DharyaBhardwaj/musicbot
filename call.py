@@ -1,35 +1,42 @@
-import aiohttp
+import os
+from pyrogram.types import Message
 from pytgcalls import PyTgCalls
 from pytgcalls.types.input_stream import AudioPiped
+from pytgcalls.types.stream import StreamType
 
-pytg = None
+from youtube import download_audio
 
-ODDUS_API = "https://oddus-audio.vercel.app/api/stream"
+pytg = PyTgCalls(None)
 
-async def get_stream_url(query: str):
-    async with aiohttp.ClientSession() as session:
-        async with session.get(ODDUS_API, params={"q": query}) as r:
-            data = await r.json()
+ACTIVE_CALLS = {}
 
-            # API returns direct audio URL
-            if "audio" not in data:
-                raise Exception("API did not return audio stream")
+async def play_song(app, message: Message, query: str):
+    chat_id = message.chat.id
 
-            return data["audio"], data.get("title", query)
+    if chat_id not in ACTIVE_CALLS:
+        await pytg.start(app)
+        ACTIVE_CALLS[chat_id] = True
 
+    await message.reply("🔎 Searching & downloading...")
 
-async def start_call(app, chat_id: int, query: str):
-    global pytg
+    audio_path, title = await download_audio(query)
 
-    if pytg is None:
-        pytg = PyTgCalls(app)
-        await pytg.start()
+    if not audio_path:
+        return await message.reply("❌ Song nahi mila")
 
-    stream_url, title = await get_stream_url(query)
+    try:
+        await pytg.join_group_call(
+            chat_id,
+            AudioPiped(
+                audio_path,
+                stream_type=StreamType().pulse_stream,
+            ),
+        )
+        await message.reply(f"🎶 Playing: **{title}**")
+    except Exception as e:
+        await message.reply(f"❌ VC Error: {e}")
 
-    await pytg.join_group_call(
-        chat_id,
-        AudioPiped(stream_url),
-    )
-
-    await app.send_message(chat_id, f"🎵 Playing: **{title}**")
+async def stop_song(chat_id: int):
+    if chat_id in ACTIVE_CALLS:
+        await pytg.leave_group_call(chat_id)
+        ACTIVE_CALLS.pop(chat_id, None)
