@@ -2,14 +2,16 @@ pyrogram==2.0.106
 tgcrypto==1.2.5
 pysocks==1.7.1
 
+# PyTgCalls (OLD STABLE, Node-free)
 pytgcalls==0.0.15
 tgcalls==3.0.0.dev6
 
-aiohttp==3.13.3
-multidict==6.0.5
-yarl==1.9.4
-attrs==23.2.0
-idna==3.6
+# aiohttp stack (COMPATIBLE SET)
+aiohttp==3.8.6
+yarl==1.8.2
+multidict==6.0.4
+attrs==23.1.0
+idna==3.4
 
 requests
 python-dotenv
