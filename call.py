@@ -1,7 +1,8 @@
 import os
 import aiohttp
+
 from pytgcalls import PyTgCalls
-from pytgcalls.types.stream import AudioPiped
+from pytgcalls.types.input_stream import InputAudioStream
 
 from youtube import search_youtube, is_youtube_url
 
@@ -11,7 +12,7 @@ ODDUS_KEY = "oddus-wiz777"
 DOWNLOAD_DIR = "downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-pytgcalls = None
+pytgcalls: PyTgCalls | None = None
 
 
 async def start_call(client):
@@ -27,7 +28,7 @@ async def download_audio(youtube_url: str) -> str:
             ODDUS_API,
             headers={"x-api-key": ODDUS_KEY},
             params={"url": youtube_url},
-            timeout=60
+            timeout=60,
         ) as resp:
 
             if resp.status != 200:
@@ -57,5 +58,5 @@ async def play_song(client, chat_id: int, query: str):
 
     await pytgcalls.join_group_call(
         chat_id,
-        AudioPiped(audio_path)
+        InputAudioStream(audio_path),
     )
