@@ -1,41 +1,61 @@
 import os
-import asyncio
-from pytgcalls import PyTgCalls
-from pytgcalls.types import MediaStream
-from pyrogram.types import Message
-from pyrogram import Client
 import aiohttp
+from pytgcalls import PyTgCalls
+from pytgcalls.types.stream import AudioPiped
 
-ODDUS_API = "https://oddus-audio.vercel.app/api/search"
+from youtube import search_youtube, is_youtube_url
 
-pytg = None
-active_calls = {}
+ODDUS_API = "https://oddus-audio.vercel.app/api/download"
+ODDUS_KEY = "oddus-wiz777"
 
-async def start_call(app: Client, message: Message, query: str):
-    global pytg
+DOWNLOAD_DIR = "downloads"
+os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-    if pytg is None:
-        pytg = PyTgCalls(app)
-        await pytg.start()
+pytgcalls = None
 
-    chat_id = message.chat.id
 
-    await message.reply("🎵 Searching & playing...")
+async def start_call(client):
+    global pytgcalls
+    if pytgcalls is None:
+        pytgcalls = PyTgCalls(client)
+        await pytgcalls.start()
 
-    audio_url = await search_song(query)
-    if not audio_url:
-        return await message.reply("❌ Song nahi mila")
 
-    stream = MediaStream(audio_url)
-
-    await pytg.join_group_call(chat_id, stream)
-    active_calls[chat_id] = True
-
-async def search_song(query: str) -> str | None:
-    params = {"q": query}
+async def download_audio(youtube_url: str) -> str:
     async with aiohttp.ClientSession() as session:
-        async with session.get(ODDUS_API, params=params) as r:
-            if r.status != 200:
-                return None
-            data = await r.json()
-            return data.get("audio")
+        async with session.get(
+            ODDUS_API,
+            headers={"x-api-key": ODDUS_KEY},
+            params={"url": youtube_url},
+            timeout=60
+        ) as resp:
+
+            if resp.status != 200:
+                raise Exception("Oddus API failed")
+
+            filename = "audio.mp3"
+            cd = resp.headers.get("Content-Disposition", "")
+            if "filename=" in cd:
+                filename = cd.split("filename=")[-1].replace('"', "")
+
+            path = os.path.join(DOWNLOAD_DIR, filename)
+
+            with open(path, "wb") as f:
+                async for chunk in resp.content.iter_chunked(1024 * 64):
+                    f.write(chunk)
+
+    return path
+
+
+async def play_song(client, chat_id: int, query: str):
+    if is_youtube_url(query):
+        youtube_url = query
+    else:
+        youtube_url = await search_youtube(query)
+
+    audio_path = await download_audio(youtube_url)
+
+    await pytgcalls.join_group_call(
+        chat_id,
+        AudioPiped(audio_path)
+    )
