@@ -8,79 +8,71 @@ from pyrogram.types import Message
 
 from call import play, stop
 
-# ==============================
+
+# ======================
 # ENV
-# ==============================
+# ======================
 API_ID = int(os.environ["API_ID"])
 API_HASH = os.environ["API_HASH"]
 BOT_TOKEN = os.environ["BOT_TOKEN"]
-STRING_SESSION = os.environ["STRING_SESSION"]
 
-# ==============================
-# BOT CLIENT (commands ke liye)
-# ==============================
+
+# ======================
+# BOT CLIENT (COMMANDS)
+# ======================
 bot = Client(
-    "music-bot",
+    "bot",
     api_id=API_ID,
     api_hash=API_HASH,
     bot_token=BOT_TOKEN,
     in_memory=True,
+    no_updates=True
 )
 
-# ==============================
-# USER CLIENT (VC ke liye)
-# ==============================
-user = Client(
-    "music-user",
-    api_id=API_ID,
-    api_hash=API_HASH,
-    session_string=STRING_SESSION,
-    in_memory=True,
-)
 
-# ==============================
-# COMMANDS
-# ==============================
 @bot.on_message(filters.command("start"))
-async def start_cmd(_, message: Message):
+async def start(_, message: Message):
     await message.reply_text(
         "🎵 VC Music Bot Ready\n\n"
         "/play <song name>\n"
-        "/stop",
-        quote=True
+        "/stop"
     )
+
 
 @bot.on_message(filters.command("play") & filters.group)
 async def play_cmd(_, message: Message):
     if len(message.command) < 2:
-        await message.reply_text("❌ Song name likho", quote=True)
+        await message.reply_text("❌ Song name likho")
         return
 
-    query = " ".join(message.command[1:])
-    await message.reply_text(f"⏬ Downloading: {query}", quote=True)
+    song = " ".join(message.command[1:])
+    await message.reply_text(f"⏬ Downloading: {song}")
 
     try:
-        await play(user, message.chat.id, query)
-        await message.reply_text("▶️ Playing in VC", quote=True)
+        await play(message.chat.id, song)
+        await message.reply_text("▶️ Playing in VC")
     except Exception as e:
-        await message.reply_text(f"❌ Error:\n{e}", quote=True)
+        await message.reply_text(f"❌ Error:\n{e}")
+
 
 @bot.on_message(filters.command("stop") & filters.group)
 async def stop_cmd(_, message: Message):
     try:
         await stop(message.chat.id)
-        await message.reply_text("⏹ Stopped", quote=True)
+        await message.reply_text("⏹ Stopped")
     except Exception as e:
-        await message.reply_text(f"❌ Error:\n{e}", quote=True)
+        await message.reply_text(f"❌ Error:\n{e}")
 
-# ==============================
-# FAKE HTTP SERVER (Render)
-# ==============================
+
+# ======================
+# FAKE HTTP (RENDER)
+# ======================
 http_app = Flask(__name__)
 
 @http_app.route("/")
 def home():
     return "VC Music Bot Running"
+
 
 def run_http():
     http_app.run(
@@ -88,20 +80,11 @@ def run_http():
         port=int(os.environ.get("PORT", 10000))
     )
 
-# ==============================
+
+# ======================
 # MAIN
-# ==============================
-async def main():
-    threading.Thread(target=run_http, daemon=True).start()
-    print("✅ Fake HTTP server started")
-
-    await user.start()
-    print("✅ User client started")
-
-    await bot.start()
-    print("✅ Bot client started")
-
-    await asyncio.Event().wait()
-
+# ======================
 if __name__ == "__main__":
-    asyncio.run(main())
+    threading.Thread(target=run_http, daemon=True).start()
+    print("✅ HTTP server started")
+    bot.run()
