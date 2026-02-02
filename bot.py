@@ -69,7 +69,7 @@ async def stop_cmd(_, message: Message):
 # ==============================
 # 🔹 FAKE HTTP SERVER (Render)
 # ==============================
-http_app = Flask(name)
+http_app = Flask(__name__)
 
 @http_app.route("/")
 def home():
