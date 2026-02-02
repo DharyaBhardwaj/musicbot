@@ -7,11 +7,11 @@ from pytgcalls.types.input_stream import AudioPiped
 from pytgcalls.types.input_stream.quality import HighQualityAudio
 
 # ==========================
-# 🔹 CONFIG
+# 🔹 DOWNLOAD API (NOT SEARCH)
 # ==========================
 MUSIC_API_URL = os.environ.get(
     "MUSIC_API_URL",
-    "https://oddus-audio.vercel.app/api/search"
+    "https://oddus-audio.vercel.app/api/download"
 )
 
 pytg = None
@@ -29,12 +29,12 @@ async def get_stream_url(query: str) -> str:
     async with aiohttp.ClientSession() as session:
         async with session.get(
             MUSIC_API_URL,
-            params={"q": query}   # ✅ IMPORTANT FIX
+            params={"q": query}   # 🔥 DOWNLOAD PARAM
         ) as resp:
             data = await resp.json()
 
     if not data or "audio" not in data:
-        raise Exception("API did not return audio")
+        raise Exception("Download API did not return audio")
 
     return data["audio"]
 
@@ -46,10 +46,7 @@ async def play(app: Client, chat_id: int, query: str):
 
     await pytg.join_group_call(
         chat_id,
-        AudioPiped(
-            stream_url,
-            HighQualityAudio(),
-        ),
+        AudioPiped(stream_url, HighQualityAudio())
     )
 
     ACTIVE_CHATS.add(chat_id)
