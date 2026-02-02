@@ -1,6 +1,5 @@
 import os
 import threading
-import asyncio
 
 from flask import Flask
 from pyrogram import Client, filters
@@ -9,19 +8,19 @@ from pyrogram.types import Message
 from call import play, stop
 
 
-# ======================
+# ==============================
 # ENV
-# ======================
+# ==============================
 API_ID = int(os.environ["API_ID"])
 API_HASH = os.environ["API_HASH"]
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 
 
-# ======================
-# BOT CLIENT (COMMANDS)
-# ======================
+# ==============================
+# TELEGRAM BOT
+# ==============================
 bot = Client(
-    "music-bot",
+    "music_bot",
     api_id=API_ID,
     api_hash=API_HASH,
     bot_token=BOT_TOKEN,
@@ -29,8 +28,11 @@ bot = Client(
 )
 
 
+# ==============================
+# COMMANDS
+# ==============================
 @bot.on_message(filters.command("start"))
-async def start(_, message: Message):
+async def start_cmd(_, message: Message):
     await message.reply_text(
         "🎵 VC Music Bot Ready\n\n"
         "/play <song name>\n"
@@ -39,16 +41,15 @@ async def start(_, message: Message):
 
 
 @bot.on_message(filters.command("play") & filters.group)
-async def play_cmd(_, message: Message):
+async def play_cmd(client: Client, message: Message):
     if len(message.command) < 2:
         await message.reply_text("❌ Song name likho")
         return
 
-    song = " ".join(message.command[1:])
-    await message.reply_text(f"⏬ Downloading: {song}")
+    query = " ".join(message.command[1:])
 
     try:
-        await play(message.chat.id, song)
+        await play(client, message.chat.id, query)
         await message.reply_text("▶️ Playing in VC")
     except Exception as e:
         await message.reply_text(f"❌ Error:\n{e}")
@@ -63,14 +64,14 @@ async def stop_cmd(_, message: Message):
         await message.reply_text(f"❌ Error:\n{e}")
 
 
-# ======================
-# FAKE HTTP (RENDER)
-# ======================
+# ==============================
+# FAKE HTTP (Render)
+# ==============================
 http_app = Flask(__name__)
 
 @http_app.route("/")
 def home():
-    return "VC Music Bot Running"
+    return "Music bot running"
 
 
 def run_http():
@@ -80,10 +81,9 @@ def run_http():
     )
 
 
-# ======================
+# ==============================
 # MAIN
-# ======================
+# ==============================
 if __name__ == "__main__":
     threading.Thread(target=run_http, daemon=True).start()
-    print("✅ HTTP server started")
     bot.run()
