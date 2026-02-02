@@ -21,12 +21,11 @@ BOT_TOKEN = os.environ["BOT_TOKEN"]
 # BOT CLIENT (COMMANDS)
 # ======================
 bot = Client(
-    "bot",
+    "music-bot",
     api_id=API_ID,
     api_hash=API_HASH,
     bot_token=BOT_TOKEN,
     in_memory=True,
-    no_memory=True
 )
 
 
