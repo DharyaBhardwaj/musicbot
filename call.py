@@ -1,6 +1,7 @@
 import os
 import aiohttp
 import uuid
+import subprocess
 
 from pyrogram import Client
 from pytgcalls import PyTgCalls
@@ -10,7 +11,7 @@ from pytgcalls.types.input_stream.quality import HighQualityAudio
 # =========================
 # CONFIG
 # =========================
-MUSIC_API_URL = os.environ.get(
+DOWNLOAD_API = os.environ.get(
     "MUSIC_API_URL",
     "https://oddus-audio.vercel.app/api/download"
 )
@@ -38,11 +39,11 @@ async def init_vc(app: Client):
 
 
 # =========================
-# DOWNLOAD AUDIO
+# DOWNLOAD + VERIFY
 # =========================
 async def download_song(query: str) -> str:
-    filename = f"{uuid.uuid4().hex}.mp3"
-    filepath = os.path.join(DOWNLOAD_DIR, filename)
+    raw_path = os.path.join(DOWNLOAD_DIR, f"{uuid.uuid4().hex}.raw")
+    final_path = raw_path.replace(".raw", ".mp3")
 
     headers = {
         "x-api-key": ODDUS_API_KEY,
@@ -51,18 +52,35 @@ async def download_song(query: str) -> str:
 
     async with aiohttp.ClientSession() as session:
         async with session.get(
-            MUSIC_API_URL,
+            DOWNLOAD_API,
             params={"url": query},
             headers=headers,
         ) as resp:
             if resp.status != 200:
                 raise Exception(f"Download API HTTP error: {resp.status}")
 
-            with open(filepath, "wb") as f:
+            with open(raw_path, "wb") as f:
                 async for chunk in resp.content.iter_chunked(1024 * 64):
                     f.write(chunk)
 
-    return filepath
+    # 🔥 FORCE CONVERT → REAL AUDIO
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-i", raw_path,
+        "-vn",
+        "-ac", "2",
+        "-ar", "48000",
+        "-f", "mp3",
+        final_path
+    ]
+
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    if not os.path.exists(final_path) or os.path.getsize(final_path) < 5000:
+        raise Exception("Downloaded file is not valid audio")
+
+    return final_path
 
 
 # =========================
@@ -71,12 +89,12 @@ async def download_song(query: str) -> str:
 async def play(app: Client, chat_id: int, query: str):
     await init_vc(app)
 
-    file_path = await download_song(query)
+    audio_path = await download_song(query)
 
     await pytg.join_group_call(
         chat_id,
         AudioPiped(
-            file_path,
+            audio_path,
             HighQualityAudio(),
         ),
     )
