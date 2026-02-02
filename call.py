@@ -1,17 +1,21 @@
 import os
 import aiohttp
-import asyncio
-
 from pyrogram import Client
 from pytgcalls import PyTgCalls
 from pytgcalls.types.input_stream import AudioPiped
-from youtubesearchpython import VideosSearch
+from pytgcalls.types.input_stream.quality import HighQualityAudio
 
-API_URL = "https://oddus-audio.vercel.app/api/download"
-API_KEY = "oddus-wiz777"
+# ========= CONFIG =========
+MUSIC_API_URL = os.environ.get(
+    "MUSIC_API_URL",
+    "https://oddus-audio.vercel.app/api/search"
+)
+
+# ==========================
 
 pytg = None
-ACTIVE_CALLS = {}
+ACTIVE_CHATS = set()
+
 
 async def init_vc(app: Client):
     global pytg
@@ -19,42 +23,37 @@ async def init_vc(app: Client):
         pytg = PyTgCalls(app)
         await pytg.start()
 
-async def song_to_youtube(song):
-    res = await VideosSearch(song, limit=1).next()
-    return res["result"][0]["link"]
 
-async def download_from_api(yt_url, chat_id):
-    os.makedirs("downloads", exist_ok=True)
-    path = f"downloads/{chat_id}.mp3"
+async def get_stream_url(query: str) -> str:
+    async with aiohttp.ClientSession() as session:
+        async with session.get(
+            MUSIC_API_URL, params={"query": query}
+        ) as resp:
+            data = await resp.json()
 
-    async with aiohttp.ClientSession() as s:
-        async with s.get(
-            API_URL,
-            params={"url": yt_url},
-            headers={"x-api-key": API_KEY}
-        ) as r:
-            if r.status != 200:
-                raise Exception("API did not return audio")
-            with open(path, "wb") as f:
-                f.write(await r.read())
+    if not data or "audio" not in data:
+        raise Exception("API did not return audio")
 
-    return path
+    return data["audio"]
 
-async def play_song(app: Client, chat_id: int, song_name: str):
-    await app.get_chat(chat_id)   # 🔥 Peer fix
+
+async def play(app: Client, chat_id: int, query: str):
     await init_vc(app)
 
-    yt = await song_to_youtube(song_name)
-    audio = await download_from_api(yt, chat_id)
+    stream_url = await get_stream_url(query)
 
     await pytg.join_group_call(
         chat_id,
-        AudioPiped(audio)
+        AudioPiped(
+            stream_url,
+            HighQualityAudio(),
+        ),
     )
 
-    ACTIVE_CALLS[chat_id] = audio
+    ACTIVE_CHATS.add(chat_id)
 
-async def stop_song(chat_id: int):
-    if chat_id in ACTIVE_CALLS:
+
+async def stop(chat_id: int):
+    if pytg and chat_id in ACTIVE_CHATS:
         await pytg.leave_group_call(chat_id)
-        ACTIVE_CALLS.pop(chat_id, None)
+        ACTIVE_CHATS.remove(chat_id)
