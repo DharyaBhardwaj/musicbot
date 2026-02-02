@@ -15,10 +15,15 @@ MUSIC_API_URL = os.environ.get(
     "https://oddus-audio.vercel.app/api/download"
 )
 
+ODDUS_API_KEY = os.environ.get(
+    "ODDUS_API_KEY",
+    "oddus-wiz777"
+)
+
 DOWNLOAD_DIR = "downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-pytg: PyTgCalls | None = None
+pytg = None
 ACTIVE_CHATS = set()
 
 
@@ -39,10 +44,16 @@ async def download_song(query: str) -> str:
     filename = f"{uuid.uuid4().hex}.mp3"
     filepath = os.path.join(DOWNLOAD_DIR, filename)
 
+    headers = {
+        "x-api-key": ODDUS_API_KEY,
+        "Accept": "*/*",
+    }
+
     async with aiohttp.ClientSession() as session:
         async with session.get(
             MUSIC_API_URL,
             params={"url": query},
+            headers=headers,
         ) as resp:
             if resp.status != 200:
                 raise Exception(f"Download API HTTP error: {resp.status}")
