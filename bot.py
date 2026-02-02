@@ -68,7 +68,7 @@ async def stop_cmd(_, message: Message):
 # ======================
 # FAKE HTTP (Render)
 # ======================
-http_app = Flask(name)
+http_app = Flask(__name__)
 
 @http_app.route("/")
 def home():
@@ -85,7 +85,7 @@ def run_http():
 # ======================
 # MAIN
 # ======================
-if name == "main":
+if __name__ == "__main__":
     threading.Thread(target=run_http, daemon=True).start()
     print("✅ Fake HTTP server started")
     app.run()
