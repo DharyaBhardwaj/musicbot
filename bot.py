@@ -1,6 +1,5 @@
 import os
 import threading
-import asyncio
 
 from flask import Flask
 from pyrogram import Client, filters
@@ -8,14 +7,12 @@ from pyrogram.types import Message
 
 from call import play, stop
 
-
 # ==============================
 # 🔹 ENV
 # ==============================
 API_ID = int(os.environ.get("API_ID"))
 API_HASH = os.environ.get("API_HASH")
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-
 
 # ==============================
 # 🔹 TELEGRAM BOT
@@ -27,7 +24,6 @@ app = Client(
     bot_token=BOT_TOKEN,
     in_memory=True,
 )
-
 
 # ==============================
 # 🔹 COMMANDS

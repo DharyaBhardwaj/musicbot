@@ -1,33 +1,35 @@
 import os
 import aiohttp
+
 from pyrogram import Client
 from pytgcalls import PyTgCalls
 from pytgcalls.types.input_stream import AudioPiped
 from pytgcalls.types.input_stream.quality import HighQualityAudio
 
-# ========= CONFIG =========
+# ==========================
+# 🔹 CONFIG
+# ==========================
 MUSIC_API_URL = os.environ.get(
     "MUSIC_API_URL",
     "https://oddus-audio.vercel.app/api/search"
 )
 
-# ==========================
-
 pytg = None
 ACTIVE_CHATS = set()
 
-
+# ==========================
 async def init_vc(app: Client):
     global pytg
     if pytg is None:
         pytg = PyTgCalls(app)
         await pytg.start()
 
-
+# ==========================
 async def get_stream_url(query: str) -> str:
     async with aiohttp.ClientSession() as session:
         async with session.get(
-            MUSIC_API_URL, params={"query": query}
+            MUSIC_API_URL,
+            params={"q": query}   # ✅ IMPORTANT FIX
         ) as resp:
             data = await resp.json()
 
@@ -36,7 +38,7 @@ async def get_stream_url(query: str) -> str:
 
     return data["audio"]
 
-
+# ==========================
 async def play(app: Client, chat_id: int, query: str):
     await init_vc(app)
 
@@ -52,7 +54,7 @@ async def play(app: Client, chat_id: int, query: str):
 
     ACTIVE_CHATS.add(chat_id)
 
-
+# ==========================
 async def stop(chat_id: int):
     if pytg and chat_id in ACTIVE_CHATS:
         await pytg.leave_group_call(chat_id)
