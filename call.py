@@ -51,16 +51,20 @@ async def download_song(query: str) -> str:
 
     return path
 
-async def play(chat_id: int, query: str):
-    await init()
+async def play(app: Client, chat_id: int, query: str):
+    await init_vc(app)
 
-    audio = await download_song(query)
+    audio_file = await download_audio(query)
 
     await pytg.join_group_call(
         chat_id,
-        AudioPiped(audio, HighQualityAudio()),
+        AudioPiped(
+            audio_file,
+            HighQualityAudio()
+        )
     )
-    ACTIVE.add(chat_id)
+
+    ACTIVE_CHATS.add(chat_id)
 
 async def stop(chat_id: int):
     if chat_id in ACTIVE:
