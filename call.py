@@ -1,59 +1,68 @@
 import os
 import aiohttp
+import uuid
+
 from pyrogram import Client
 from pytgcalls import PyTgCalls
 from pytgcalls.types.input_stream import AudioPiped
 from pytgcalls.types.input_stream.quality import HighQualityAudio
 
-MUSIC_API_URL = os.getenv("MUSIC_API_URL")  # /api/download
-MUSIC_API_KEY = os.getenv("ODDUS_API_KEY")
+API_ID = int(os.environ["API_ID"])
+API_HASH = os.environ["API_HASH"]
+STRING_SESSION = os.environ["STRING_SESSION"]
 
-pytg = None
-ACTIVE_CHATS = set()
+ODDUS_API_KEY = os.environ["ODDUS_API_KEY"]
+DOWNLOAD_API = os.environ["MUSIC_API_URL"]
 
+assistant = Client(
+    STRING_SESSION,
+    api_id=API_ID,
+    api_hash=API_HASH,
+    in_memory=True,
+)
 
-async def init_vc(app: Client):
-    global pytg
-    if pytg is None:
-        pytg = PyTgCalls(app)
+pytg = PyTgCalls(assistant)
+ACTIVE = set()
+
+async def init():
+    if not assistant.is_connected:
+        await assistant.start()
+    if not pytg.is_connected:
         await pytg.start()
 
+async def download_song(query: str) -> str:
+    params = {"query": query}
+    headers = {"x-api-key": ODDUS_API_KEY}
 
-async def get_stream_url(query: str) -> str:
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-            MUSIC_API_URL,
-            json={
-                "query": query,
-                "api_key": MUSIC_API_KEY
-            }
-        ) as resp:
+    async with aiohttp.ClientSession() as s:
+        async with s.get(DOWNLOAD_API, params=params, headers=headers) as r:
+            if r.status != 200:
+                raise Exception(f"Download API HTTP error: {r.status}")
 
-            if resp.status != 200:
-                raise Exception(f"Download API HTTP error: {resp.status}")
+            path = f"downloads/{uuid.uuid4().hex}.mp3"
+            os.makedirs("downloads", exist_ok=True)
 
-            data = await resp.json()
+            with open(path, "wb") as f:
+                async for chunk in r.content.iter_chunked(1024 * 64):
+                    f.write(chunk)
 
-    if "audio" not in data:
-        raise Exception("Download API did not return audio")
+    if os.path.getsize(path) < 100_000:
+        raise Exception("Downloaded file is not valid audio")
 
-    return data["audio"]
+    return path
 
+async def play(chat_id: int, query: str):
+    await init()
 
-async def play(app: Client, chat_id: int, query: str):
-    await init_vc(app)
-
-    stream_url = await get_stream_url(query)
+    audio = await download_song(query)
 
     await pytg.join_group_call(
         chat_id,
-        AudioPiped(stream_url, HighQualityAudio()),
+        AudioPiped(audio, HighQualityAudio()),
     )
-
-    ACTIVE_CHATS.add(chat_id)
-
+    ACTIVE.add(chat_id)
 
 async def stop(chat_id: int):
-    if pytg and chat_id in ACTIVE_CHATS:
+    if chat_id in ACTIVE:
         await pytg.leave_group_call(chat_id)
-        ACTIVE_CHATS.remove(chat_id)
+        ACTIVE.remove(chat_id)

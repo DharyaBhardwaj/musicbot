@@ -8,29 +8,28 @@ from pyrogram.types import Message
 from call import play, stop
 
 
-# ==============================
+# =========================
 # ENV
-# ==============================
+# =========================
 API_ID = int(os.environ["API_ID"])
 API_HASH = os.environ["API_HASH"]
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 
 
-# ==============================
-# TELEGRAM BOT
-# ==============================
+# =========================
+# BOT CLIENT
+# =========================
 bot = Client(
-    "music_bot",
+    "music-bot",
     api_id=API_ID,
     api_hash=API_HASH,
     bot_token=BOT_TOKEN,
-    in_memory=True,
 )
 
 
-# ==============================
+# =========================
 # COMMANDS
-# ==============================
+# =========================
 @bot.on_message(filters.command("start"))
 async def start_cmd(_, message: Message):
     await message.reply_text(
@@ -47,6 +46,7 @@ async def play_cmd(client: Client, message: Message):
         return
 
     query = " ".join(message.command[1:])
+    await message.reply_text(f"⏬ Downloading: {query}")
 
     try:
         await play(client, message.chat.id, query)
@@ -64,9 +64,9 @@ async def stop_cmd(_, message: Message):
         await message.reply_text(f"❌ Error:\n{e}")
 
 
-# ==============================
-# FAKE HTTP (Render)
-# ==============================
+# =========================
+# FAKE HTTP SERVER (Render)
+# =========================
 http_app = Flask(__name__)
 
 @http_app.route("/")
@@ -81,9 +81,10 @@ def run_http():
     )
 
 
-# ==============================
+# =========================
 # MAIN
-# ==============================
+# =========================
 if __name__ == "__main__":
     threading.Thread(target=run_http, daemon=True).start()
+    print("✅ HTTP server started")
     bot.run()
