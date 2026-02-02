@@ -1,62 +1,37 @@
 import os
 import aiohttp
-import uuid
-
 from pyrogram import Client
 from pytgcalls import PyTgCalls
 from pytgcalls.types.input_stream import AudioPiped
 from pytgcalls.types.input_stream.quality import HighQualityAudio
 
+MUSIC_API_URL = os.getenv("MUSIC_API_URL")  # /api/download
+MUSIC_API_KEY = os.getenv("ODDUS_API_KEY")
 
-# ======================
-# ENV
-# ======================
-API_ID = int(os.environ["API_ID"])
-API_HASH = os.environ["API_HASH"]
-STRING_SESSION = os.environ["STRING_SESSION"]
-
-MUSIC_API_URL = os.environ.get(
-    "MUSIC_API_URL",
-    "https://oddus-audio.vercel.app/api/download"
-)
-ODDUS_API_KEY = os.environ["ODDUS_API_KEY"]
+pytg = None
+ACTIVE_CHATS = set()
 
 
-# ======================
-# USER CLIENT (VC)
-# ======================
-user = Client(
-    "user",
-    api_id=API_ID,
-    api_hash=API_HASH,
-    session_string=STRING_SESSION,
-    in_memory=True,
-    no_updates=True
-)
-
-pytg = PyTgCalls(user)
-ACTIVE = set()
-
-
-# ======================
-async def start_vc():
-    if not user.is_connected:
-        await user.start()
-    if not pytg.is_connected:
+async def init_vc(app: Client):
+    global pytg
+    if pytg is None:
+        pytg = PyTgCalls(app)
         await pytg.start()
 
 
-# ======================
-async def download_audio(query: str) -> str:
-    params = {
-        "query": query,
-        "key": ODDUS_API_KEY
-    }
-
+async def get_stream_url(query: str) -> str:
     async with aiohttp.ClientSession() as session:
-        async with session.get(MUSIC_API_URL, params=params) as resp:
+        async with session.post(
+            MUSIC_API_URL,
+            json={
+                "query": query,
+                "api_key": MUSIC_API_KEY
+            }
+        ) as resp:
+
             if resp.status != 200:
                 raise Exception(f"Download API HTTP error: {resp.status}")
+
             data = await resp.json()
 
     if "audio" not in data:
@@ -65,22 +40,20 @@ async def download_audio(query: str) -> str:
     return data["audio"]
 
 
-# ======================
-async def play(chat_id: int, query: str):
-    await start_vc()
+async def play(app: Client, chat_id: int, query: str):
+    await init_vc(app)
 
-    audio_url = await download_audio(query)
+    stream_url = await get_stream_url(query)
 
     await pytg.join_group_call(
         chat_id,
-        AudioPiped(audio_url, HighQualityAudio())
+        AudioPiped(stream_url, HighQualityAudio()),
     )
 
-    ACTIVE.add(chat_id)
+    ACTIVE_CHATS.add(chat_id)
 
 
-# ======================
 async def stop(chat_id: int):
-    if chat_id in ACTIVE:
+    if pytg and chat_id in ACTIVE_CHATS:
         await pytg.leave_group_call(chat_id)
-        ACTIVE.remove(chat_id)
+        ACTIVE_CHATS.remove(chat_id)
