@@ -86,7 +86,7 @@ def run_http():
 # ==============================
 # 🔹 MAIN
 # ==============================
-if name == "main":
+if __name__ == "__main__":
     threading.Thread(target=run_http, daemon=True).start()
     print("✅ Fake HTTP server started")
     app.run()
