@@ -1,5 +1,6 @@
 import os
 import aiohttp
+import asyncio
 
 from pyrogram import Client
 from pytgcalls import PyTgCalls
@@ -7,21 +8,16 @@ from pytgcalls.types.input_stream import AudioPiped
 from pytgcalls.types.input_stream.quality import HighQualityAudio
 
 
-# ==============================
-# 🔹 CONFIG
-# ==============================
-DOWNLOAD_API = os.environ.get(
-    "MUSIC_API_URL",
-    "https://oddus-audio.vercel.app/api/download"
-)
+# ======================
+# CONFIG
+# ======================
+MUSIC_API_URL = os.environ["MUSIC_API_URL"]
 
-pytg = None
+pytg: PyTgCalls | None = None
 ACTIVE_CHATS = set()
 
 
-# ==============================
-# 🔹 INIT VC
-# ==============================
+# ======================
 async def init_vc(app: Client):
     global pytg
     if pytg is None:
@@ -29,14 +25,12 @@ async def init_vc(app: Client):
         await pytg.start()
 
 
-# ==============================
-# 🔹 DOWNLOAD SONG
-# ==============================
-async def download_song(song_name: str) -> str:
+# ======================
+async def download_audio(query: str) -> str:
     async with aiohttp.ClientSession() as session:
-        async with session.get(
-            DOWNLOAD_API,
-            params={"title": song_name}  # 🔥 IMPORTANT
+        async with session.post(
+            MUSIC_API_URL,
+            json={"query": query}   # ❗ DOWNLOAD ONLY
         ) as resp:
 
             if resp.status != 200:
@@ -44,34 +38,30 @@ async def download_song(song_name: str) -> str:
 
             data = await resp.json()
 
-    if "file" not in data:
-        raise Exception("No audio source found")
+    if "audio" not in data:
+        raise Exception("Download API did not return audio")
 
-    return data["file"]
+    return data["audio"]
 
 
-# ==============================
-# 🔹 PLAY
-# ==============================
-async def play(app: Client, chat_id: int, song_name: str):
+# ======================
+async def play(app: Client, chat_id: int, query: str):
     await init_vc(app)
 
-    stream_url = await download_song(song_name)
+    audio_source = await download_audio(query)
 
     await pytg.join_group_call(
         chat_id,
         AudioPiped(
-            stream_url,
-            HighQualityAudio(),
-        ),
+            audio_source,
+            HighQualityAudio()
+        )
     )
 
     ACTIVE_CHATS.add(chat_id)
 
 
-# ==============================
-# 🔹 STOP
-# ==============================
+# ======================
 async def stop(chat_id: int):
     if pytg and chat_id in ACTIVE_CHATS:
         await pytg.leave_group_call(chat_id)
